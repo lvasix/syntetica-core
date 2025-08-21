@@ -4,7 +4,9 @@ const sdl = @import("SDL2");
 fn addSDL(b: *std.Build, exe: *std.Build.Step.Compile) void {
     const sdk = sdl.init(b, .{.dep_name = "SDL2"});
     sdl.link(sdk, exe, .dynamic, sdl.Library.SDL2);
-    exe.root_module.addImport("sdl2", sdk.getNativeModule());
+
+    // request the wrapper module for sdl2 instead of native
+    exe.root_module.addImport("sdl2", sdk.getWrapperModule());
 }
 
 fn addSyntetica(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, exe: *std.Build.Step.Compile) void {
@@ -20,10 +22,11 @@ fn addSyntetica(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
         .name = "syntetica",
         .root_module = syntetica_mod,
     });
-
     b.installArtifact(syntetica);
 
-    addSDL(b, exe);
+    syntetica.addIncludePath(b.path("src/"));
+
+    addSDL(b, syntetica);
 }
 
 pub fn build(b: *std.Build) void {
