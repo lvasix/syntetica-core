@@ -36,9 +36,9 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
-        .SDL2 = .{
-            .url = "https://github.com/ikskuh/SDL.zig/archive/refs/heads/master.tar.gz",
-            .hash = "SDL2-0.0.0-yMCQigakBADGJHtb2ljt13P_cCnG8Y819HRnIibNVPFk",
+        .sdl3 = .{
+            .url = "git+https://github.com/Gota7/zig-sdl3?ref=zig-master#b71eec49689b833aae44ee7835e4ae414be5ca12",
+            .hash = "sdl3-0.0.1-NmT1Q9eYIADHjf5RQhYK67Kmr9FLiY4PKvlDaTv9-NbA",
         },
     },
     .paths = .{
