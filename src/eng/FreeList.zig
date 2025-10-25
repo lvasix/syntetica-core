@@ -14,7 +14,10 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
         const FreeListError = error {
             element_not_found,
             start_does_not_exist,
+            not_initialized,
         };
+
+        _initialized: bool = false,
 
         /// elements array
         data: []DataType = undefined,
@@ -35,6 +38,7 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
         /// allocator
         allocator: std.mem.Allocator = undefined,
 
+        /// Internal function used for checking the size of the internal data, _data_info and _free_space arrays.
         fn checkAndResize(self: *Self) !void {
             if(!(self._occupied >= self.data.len)) return;
 
@@ -47,6 +51,11 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             }
         }
 
+        /// Initialize the SimpleLinkedFreeList type with an allocator of choice
+        ///
+        /// @param allocator std.mem.Allocator of choice
+        ///
+        /// @return SimpleLinkedFreeList
         pub fn init(allocator: std.mem.Allocator) !Self {
             var obj: Self = .{};
 
@@ -61,10 +70,13 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
                 data.* = i;
             }
 
+            obj._initialized = true;
             return obj;
         }
 
+        /// Inserts new value into the SimpleLinkedFreeList
         pub fn insert(self: *Self, data: DataType) !usize {
+            if(self._initialized == false) return FreeListError.not_initialized;
             try self.checkAndResize();
 
             const id = self._free_space[self.data.len - self._occupied - 1] orelse unreachable;
@@ -83,22 +95,47 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
                 self._data_info[self._data_info[id].prev].next = id; // set ourselves as our new previous' next
             }
 
+            // assign the data to the reserved ID
             self.data[id] = data;
 
             return id;
         }
 
+        /// deletes an ID from SimpleLinkedFreeList, use this when you are done with 
+        /// using a place in the SimpleLinkedFreeList.
         pub fn deleteID(self: *Self, id: usize) void {
+            // add the id back to stack
             self._free_space[self.data.len - self._occupied] = id;
-            self._data_info[self._data_info[id].prev].next = self._data_info[id].next;
-            self._data_info[self._data_info[id].next].prev = self._data_info[id].prev;
+
+            // handle edge case when deleting a root node which is also last
+            if(self._start == id and self._occupied <= 1) {
+                self._start = null;
+            } else {
+                // remove the element from linked list
+                self._data_info[self._data_info[id].prev].next = self._data_info[id].next; // our previous' next = our next
+                self._data_info[self._data_info[id].next].prev = self._data_info[id].prev; // our next's previous = our previous
+                
+                if(self._start == id) { // if the node we are trying to delete is root
+                    self._start = self._data_info[id].next; // our next node becomes the root
+                }
+            }
+
+            // decrement the element count
             self._occupied -= 1;
         }
 
+        /// returns the data stored at a specified ID
         pub fn get(self: *Self, id: usize) DataType {
             return self.data[id];
         }
 
+        /// returns the pointer to the data stored at a specified ID
+        pub fn getPtr(self: *Self, id: usize) *DataType {
+            return &self.data[id];
+        }
+
+        /// return all elements of the SimpleLinkedFreeList as an iterable (and unsorted) array.
+        /// Can return error if allocation for the iterable array fails.
         pub fn listIDs(self: *Self) ![]usize {
             if(self._compact_list.len == self._occupied) return self._compact_list; 
 
@@ -122,10 +159,42 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
         }
 
         pub fn release(self: *Self) void {
+            if(self._initialized == false) return;
             self.allocator.free(self.data);
             self.allocator.free(self._data_info);
             self.allocator.free(self._free_space);
             self.allocator.free(self._compact_list);
+            self._initialized = false;
         }
     };
+}
+
+const freelist = @This();
+const testing = std.testing;
+test "freelist_general" {
+    var fl: freelist.SimpleLinkedFreeList(u32, 5) = try .init(testing.allocator);
+
+    for(0..10) |i| {
+        const id = try fl.insert(@intCast(i));
+        std.debug.print("id: {} = {}\n", .{id, i});
+    }
+
+    std.debug.print("STRUCT: {}\n", .{fl});
+
+    std.debug.print("IDs: ", .{});
+    for(try fl.listIDs()) |data_id| {
+        std.debug.print("{}<-{}:{}->{} ", .{fl._data_info[data_id].prev, fl.data[data_id], data_id, fl._data_info[data_id].next});
+    }
+    std.debug.print("\n", .{});
+
+    std.debug.print("DATA: ", .{});
+    for(try fl.listIDs()) |data_id| {
+        const data = fl.get(data_id);
+        std.debug.print("{}, ", .{data});
+    }
+    std.debug.print("\n", .{});
+
+    std.debug.print("{!}", .{fl.find(5)});
+
+    fl.release();
 }
