@@ -8,5 +8,6 @@ const PhysicsEntity = struct {
     };
 
     mobility: Mobility = .rigid,
-    pos: global.Vec2,
+    pos: global.Vec2 = .val(0, 0),
+
 };
