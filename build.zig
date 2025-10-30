@@ -25,7 +25,7 @@ fn addSyntetica(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
 
     // Lib options.
     // .callbacks = false,
-    // .ext_image = false,
+    .ext_image = true,
 
     // Options passed directly to https://github.com/castholm/SDL (SDL3 C Bindings):
     // .c_sdl_preferred_linkage = .static,
@@ -41,7 +41,7 @@ fn addSyntetica(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
     // .image_enable_jpg = true,
     // .image_enable_lbm = true,
     // .image_enable_pcx = true,
-    // .image_enable_png = true,
+    .image_enable_png = true,
     // .image_enable_pnm = true,
     // .image_enable_qoi = true,
     // .image_enable_svg = true,

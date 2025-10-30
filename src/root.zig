@@ -1,7 +1,7 @@
 //! Syntetica public API
 
 const std = @import("std");
-const sdl = @import("sdl3");
+pub const sdl = @import("sdl3");
 const Window = @import("Window.zig");
 const ini = @import("init.zig");
 

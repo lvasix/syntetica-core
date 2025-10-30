@@ -402,11 +402,11 @@ pub fn DataContainer(DataType: type) type {
 }
 
 const global = @import("global.zig");
-//const mgr = mgr;
-var mgr = &global.Manager.entity;
 
 /// Functions and wrappers for easier interfacing with syntetica engine.
 pub const SyntApi = struct {
+    var mgr = &global.Manager.entity;
+    
     /// API struct for making new entities.
     pub const api = struct {
         /// arguments for init, tick and kill functions 
@@ -660,5 +660,3 @@ test "DataContainer.get" {
 
     try testing.expectEqual(5, val);
 }
-
-// change entity_function_table -> entity_registry
