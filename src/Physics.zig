@@ -1,3 +1,5 @@
+const global = @import("global.zig");
+
 const PhysicsEntity = struct {
     const Mobility = enum {
         rigid,
@@ -5,5 +7,6 @@ const PhysicsEntity = struct {
         part,
     };
 
-    mobility: Mobility = .rigid, 
+    mobility: Mobility = .rigid,
+    pos: global.Vec2,
 };
