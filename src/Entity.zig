@@ -42,6 +42,8 @@ const std = @import("std");
 /// custom free list implementation
 const FreeList = @import("FreeList.zig");
 
+const Vec2 = @import("global.zig").Vec2;
+
 const Entity = @This();
 
 /// Arguments which are passed into the entity functions
@@ -128,6 +130,9 @@ pub fn Manager(comptime entities_opt: ?[]const type) type {
         /// the actual instances of entities in the world, referenced by
         /// the entity world ID.
         pub const WorldEntity = struct {
+            /// World entity position.
+            pos: Vec2 = .val(0, 0),
+
             /// World entity process ID
             eid: usize = 0, 
 
@@ -420,10 +425,13 @@ pub const SyntApi = struct {
     };
 
     /// Spawns a new entity into the world
-    pub fn spawn(entity: @TypeOf(mgr.*).EntEnum) !*@TypeOf(mgr.*).WorldEntity {
+    pub fn spawn(entity: @TypeOf(mgr.*).EntEnum, pos: Vec2) !*@TypeOf(mgr.*).WorldEntity {
         const id = try mgr.spawn(entity);
+        const ptr = mgr.getEntityPtr(id);
 
-        return mgr.getEntityPtr(id);
+        ptr.pos = pos;
+
+        return ptr;
     }
 
     /// Kills an entity using its unique entity ID.

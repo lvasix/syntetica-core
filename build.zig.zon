@@ -36,15 +36,17 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
-        .sdl3 = .{
-            .url = "git+https://github.com/Gota7/zig-sdl3?ref=zig-master#b71eec49689b833aae44ee7835e4ae414be5ca12",
-            .hash = "sdl3-0.0.1-NmT1Q9eYIADHjf5RQhYK67Kmr9FLiY4PKvlDaTv9-NbA",
+        .raylib_zig = .{
+            .url = "https://github.com/raylib-zig/raylib-zig/archive/refs/heads/master.tar.gz",
+            .hash = "raylib_zig-5.6.0-dev-KE8REIBLBQCuKZP2YipUiUcKrjE_JSLYMwsv3yJLgBGX",
         },
     },
     .paths = .{
         "build.zig",
         "build.zig.zon",
         "src",
+        "tests",
+        "examples",
         // For example...
         //"LICENSE",
         //"README.md",

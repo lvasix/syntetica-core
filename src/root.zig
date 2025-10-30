@@ -1,7 +1,7 @@
 //! Syntetica public API
 
 const std = @import("std");
-pub const sdl = @import("sdl3");
+pub const rl = @import("raylib");
 const Window = @import("Window.zig");
 const ini = @import("init.zig");
 
@@ -10,16 +10,8 @@ pub const EngineConfig = struct {
 };
 
 pub fn init(title: [:0]const u8, flags: Window.WindowFlags) !void {
-    try ini.initSDL();
-
-    const disp = try sdl.video.Display.getPrimaryDisplay();
-
-    const dm = try sdl.video.Display.getCurrentMode(disp);
-
-    const win_size = if(flags.position == .windowed or flags.position == .centered) flags.size orelse global.Vec2u.vec2(@intCast(dm.width / 2), @intCast(dm.height / 2))
-        else global.Vec2u.vec2(@intCast(dm.width), @intCast(dm.height));
-
-    try ini.initWindow(title, win_size.x, win_size.y);
+    _ = flags;
+    ini.initWindow(title, 1200, 800);
     try ini.initEntityManager();
 }
 

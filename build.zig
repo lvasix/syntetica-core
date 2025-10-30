@@ -3,7 +3,7 @@ const sdl = @import("SDL2");
 
 fn addSyntetica(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, exe: *std.Build.Step.Compile) void {
     const syntetica_mod = b.createModule(.{
-        .root_source_file = b.path("src/eng/root.zig"),
+        .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -58,37 +58,44 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const example_mod = b.createModule(.{
-        .root_source_file = b.path("src/main.zig"),
+    const syntetica_mod = b.addModule("syntetica", .{
+        .root_source_file = b.path("src/root.zig"),
+        .optimize = optimize,
+        .target = target,
+    });
+
+    const raylib_dep = b.dependency("raylib_zig", .{
         .target = target,
         .optimize = optimize,
     });
 
-    const exe = b.addExecutable(.{
-        .name = "test",
-        .root_module = example_mod,
-    });
+    const raylib = raylib_dep.module("raylib"); // main raylib module
+    const raygui = raylib_dep.module("raygui"); // raygui module
+    const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C addLibrary
 
-    b.installArtifact(exe);
+    syntetica_mod.linkLibrary(raylib_artifact);
+    syntetica_mod.addImport("raylib", raylib);
+    syntetica_mod.addImport("raygui", raygui);
 
-    // add syntetica module to main executable
-    addSyntetica(b, target, optimize, exe);
+    // EXAMPLES ///////////////////////////
+    const examples = [_][]const u8{
+        "full",
+    };
+    for (examples) |example_name| {
+        const example = b.addExecutable(.{
+            .name = example_name,
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(b.fmt("examples/{s}/main.zig", .{example_name})),
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
 
-    const run_cmd = b.addRunArtifact(exe);
-    run_cmd.step.dependOn(b.getInstallStep());
+        const install_example = b.addRunArtifact(example);
+        example.root_module.addImport("syntetica", syntetica_mod);
 
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
+        const example_step = b.step(b.fmt("runeg_{s}", .{example_name}), b.fmt("Run the {s} example", .{example_name}));
+        example_step.dependOn(&example.step);
+        example_step.dependOn(&install_example.step);
     }
-
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
-
-    const exe_unit_tests = b.addTest(.{
-        .root_module = example_mod,
-    });
-
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_exe_unit_tests.step);
 }
