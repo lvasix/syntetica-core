@@ -60,6 +60,8 @@ pub fn main() !void {
             3.0, 
             .red,
         );
+
+        synt.rl.drawFPS(10, 10);
     }
 
     const shape1 = synt.Shapes.square(.val(2, 2), 4);

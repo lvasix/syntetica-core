@@ -16,7 +16,7 @@ pub fn vec2(x: anytype, y: @TypeOf(x)) Vec2(@TypeOf(x)) {
     return .{.x = x, .y = y};
 }
 
-const Part = struct {
+pub const Part = struct {
     const Spline = struct {
         form: enum {linear, waved} = .linear,
         texture: Texture = undefined

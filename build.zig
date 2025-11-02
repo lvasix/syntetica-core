@@ -80,21 +80,27 @@ pub fn build(b: *std.Build) void {
     // EXAMPLES ///////////////////////////
     const examples = [_][]const u8{
         "full",
+        "actorstyle",
     };
     for (examples) |example_name| {
+        const example_path = b.fmt("examples/{s}", .{example_name}); 
         const example = b.addExecutable(.{
             .name = example_name,
             .root_module = b.createModule(.{
-                .root_source_file = b.path(b.fmt("examples/{s}/main.zig", .{example_name})),
+                .root_source_file = b.path(b.fmt("{s}/main.zig", .{example_path})),
                 .target = target,
                 .optimize = optimize,
             }),
         });
-
-        const install_example = b.addRunArtifact(example);
         example.root_module.addImport("syntetica", syntetica_mod);
 
+        b.installArtifact(example);
+        const inst_dir = b.addInstallDirectory(.{ .source_dir = b.path(b.fmt("{s}/res", .{example_path})), .install_dir = .prefix, .install_subdir = "res" });
+
+        const install_example = b.addRunArtifact(example);
+
         const example_step = b.step(b.fmt("runeg_{s}", .{example_name}), b.fmt("Run the {s} example", .{example_name}));
+        example_step.dependOn(&inst_dir.step);
         example_step.dependOn(&example.step);
         example_step.dependOn(&install_example.step);
     }

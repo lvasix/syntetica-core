@@ -58,13 +58,13 @@ pub const fnArgs = struct {
 /// Manager's internal entity registry type
 pub const entRegistry = struct {
     /// function pointer for the init function
-    fn_init: *const fn(*fnArgs) anyerror!void,
+    fn_init: ?*const fn(*fnArgs) anyerror!void,
 
     /// fnptr to the tick fn
     fn_tick: *const fn(*fnArgs) void,
 
     /// fnptr to the kill fn
-    fn_kill: *const fn(*fnArgs) void,
+    fn_kill: ?*const fn(*fnArgs) void,
 };
 
 /// internal function for getting the name of an function as a null-terminated
@@ -176,9 +176,10 @@ pub fn Manager(comptime entities_opt: ?[]const type) type {
             // do the assigning of all function pointers, also initialize the 
             // private data of entities.
             inline for(entities, 0..) |entity, i| {
-                man.entity_registry[i].fn_init = entity.init;
+                man.entity_registry[i].fn_init = if(std.meta.hasFn(entity, "init")) entity.init else null;
+                man.entity_registry[i].fn_kill = if(std.meta.hasFn(entity, "kill")) entity.kill else null;
+
                 man.entity_registry[i].fn_tick = entity.tick;
-                man.entity_registry[i].fn_kill = entity.kill;
                 entity.data.data = try @TypeOf(entity.data.data).init(allocator);
                 entity.data._initialized = true;
             }
@@ -202,20 +203,23 @@ pub fn Manager(comptime entities_opt: ?[]const type) type {
         pub fn spawn(self: *ThisManager, entity: ent_enum_type) !usize {
             const id = try self.world_entities.insert(.{.entity_type = entity}); // get the entity world data
             self.world_entities.getPtr(id).eid = id; // update the world data of the entity to hold its EID
+            
+            const table_index = @as(usize, @intFromEnum(entity)); 
 
-            // prepare data needed for the Entity's init() function call.
-            const table_index = @as(usize, @intFromEnum(entity));
-            var arguments = fnArgs{
-                .entityID = id,
-                .entity_data_id = 0, // since init() will most likely create a new data instance, this can be 0
-                                     // TODO: prob should make this an optional
-            };
+            if(self.entity_registry[table_index].fn_init != null){
+                // prepare data needed for the Entity's init() function call.
+                var arguments = fnArgs{
+                    .entityID = id,
+                    .entity_data_id = 0, // since init() will most likely create a new data instance, this can be 0
+                                         // TODO: prob should make this an optional
+                };
 
-            // init() can fail so we handle that
-            try self.entity_registry[table_index].fn_init(&arguments);
+                // init() can fail so we handle that
+                try self.entity_registry[table_index].fn_init.?(&arguments);
 
-            // apply changes that may have occured in the init function.
-            self.world_entities.getPtr(id).edaID = arguments.entity_data_id;
+                // apply changes that may have occured in the init function.
+                self.world_entities.getPtr(id).edaID = arguments.entity_data_id;
+            }
 
             return id;
         }
@@ -251,13 +255,15 @@ pub fn Manager(comptime entities_opt: ?[]const type) type {
             // TODO: implement check for the existance of the entity
             const entity = self.world_entities.get(entity_id);
 
-            var arguments = fnArgs{
-                .entityID = entity.eid,
-                .entity_data_id = entity.edaID
-            };
+            if(self.entity_registry[@intFromEnum(entity.entity_type)].fn_kill != null){
+                var arguments = fnArgs{
+                    .entityID = entity.eid,
+                    .entity_data_id = entity.edaID
+                };
 
-            // run the entity's kill function
-            self.entity_registry[@intFromEnum(entity.entity_type)].fn_kill(&arguments);
+                // run the entity's kill function
+                self.entity_registry[@intFromEnum(entity.entity_type)].fn_kill.?(&arguments);
+            }
 
             self.world_entities.deleteID(entity_id);
         }

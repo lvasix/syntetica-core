@@ -28,7 +28,7 @@ pub fn getKeybinds() *@TypeOf(global.Keybinds) {
     return &global.Keybinds;
 }
 
-pub const Texture = @import("texManager.zig");
+pub const Texture = @import("Texture.zig");
 pub const Frame = @import("Frame.zig");
 pub const Physics = @import("Physics.zig");
 
@@ -36,3 +36,4 @@ pub const Physics = @import("Physics.zig");
 pub const Entity = @import("Entity.zig").SyntApi;
 
 pub const Shapes = @import("Shapes.zig");
+pub const ActorStyle = @import("ActorStyle.zig");
