@@ -72,11 +72,12 @@ pub fn Manager(comptime tex_meta: []const Meta) type {
 
             const tex_path = try std.fmt.allocPrintSentinel(global.Variable.allocator, "{s}res/{s}", .{rl.getApplicationDirectory(), tex_meta[index].path}, 0);
 
-            std.debug.print("PATH: {s}", .{tex_path});
+            std.debug.print("CWD: {s}\n", .{rl.getWorkingDirectory()});
+            std.debug.print("PATH: {s}\n", .{tex_path});
 
             // checks if the requested texture is loaded into GPU memory and loads it if not.
             if(!self.loaded_textures[index]) {
-                self.tex_arr[index].rl_texture = try rl.Texture.init(@as([:0]u8, tex_path));
+                self.tex_arr[index].rl_texture = try rl.Texture.init(tex_path);
                 self.loaded_textures[index] = true;
             }
 

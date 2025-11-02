@@ -7,6 +7,7 @@ const ini = @import("init.zig");
 
 pub const EngineConfig = struct {
     entity_list: ?[]const type = null,
+    texture_list: ?[]const Texture.Meta = null,
 };
 
 pub fn init(title: [:0]const u8, flags: Window.WindowFlags) !void {

@@ -1,6 +1,8 @@
 //! For defining the looks of something
 
-const Texture = struct {};
+const std = @import("std");
+const global = @import("global.zig");
+const Texture = @TypeOf(global.Manager.texture).TextureEnum;
 
 pub fn Vec2(T: type) type {
     return struct {
@@ -45,8 +47,9 @@ pub const Part = struct {
     anchor: Anchor = .none,
 
     pub fn body(elem: struct {
-        anchor: Anchor,
+        anchor: Anchor = .none,
         form: []const Part,
+        texture: Texture = .undef,
     }) Part {
         return .{
             .class = .body,
@@ -57,7 +60,7 @@ pub const Part = struct {
 
     pub fn leg(elem: struct {
         id: u32 = 0,
-        texture: Texture = undefined,
+        texture: Texture = .undef,
         offset: Vec2(i32) = .val(0, 0),
         spline: ?Spline = null,
     }) Part {
@@ -72,7 +75,7 @@ pub const Part = struct {
 
     pub fn arm(elem: struct {
         id: u32 = 0,
-        texture: Texture = undefined,
+        texture: Texture = .undef,
         offset: Vec2(i32) = .val(0, 0),
         spline: ?Spline = null,
     }) Part {
@@ -87,14 +90,16 @@ pub const Part = struct {
 
     pub fn head(elem: struct {
         id: u32 = 0,
-        anchor: Anchor,
+        anchor: Anchor = .none,
         offset: Vec2(i32) = .val(0, 0),
+        texture: Texture = .undef,
     }) Part {
         return .{
             .class = .head,
             .id = elem.id,
             .anchor = elem.anchor,
             .offset = elem.offset,
+            .texture = elem.texture,
         };
     }
 

@@ -94,14 +94,19 @@ pub fn build(b: *std.Build) void {
         });
         example.root_module.addImport("syntetica", syntetica_mod);
 
-        b.installArtifact(example);
-        const inst_dir = b.addInstallDirectory(.{ .source_dir = b.path(b.fmt("{s}/res", .{example_path})), .install_dir = .prefix, .install_subdir = "res" });
+        //b.installArtifact(example);
+        const inst_art = b.addInstallArtifact(example, .{.dest_dir = .{ .override = .bin}});
+//        const run_example = b.addRunArtifact(inst_art.artifact);
+        const inst_dir = b.addInstallDirectory(.{ .source_dir = b.path(b.fmt("{s}/res", .{example_path})), .install_dir = .bin, .install_subdir = "res" });
 
-        const install_example = b.addRunArtifact(example);
+        const default_path = b.fmt("zig-out/bin/{s}", .{example_name});
+
+        const run_example = b.addSystemCommand(&.{b.fmt("{s}/../{s}", .{b.install_path ,example.installed_path orelse default_path})});
+        run_example.step.dependOn(&inst_art.step);
+        run_example.step.dependOn(&inst_dir.step);
 
         const example_step = b.step(b.fmt("runeg_{s}", .{example_name}), b.fmt("Run the {s} example", .{example_name}));
-        example_step.dependOn(&inst_dir.step);
         example_step.dependOn(&example.step);
-        example_step.dependOn(&install_example.step);
+        example_step.dependOn(&run_example.step);
     }
 }

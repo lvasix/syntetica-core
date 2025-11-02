@@ -1,0 +1,5 @@
+.{
+    .resources_path = ":res/",
+    .fps_cap = 60,
+    .screen_size = .{1200, 800},
+}
