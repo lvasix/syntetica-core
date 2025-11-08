@@ -13,7 +13,7 @@ pub const EngineConfig = struct {
 pub fn init(title: [:0]const u8, flags: Window.WindowFlags) !void {
     _ = flags;
     ini.initWindow(title, 1200, 800);
-    try ini.initEntityManager();
+    try ini.initManagers();
 }
 
 pub fn isRunning() bool {
@@ -38,3 +38,5 @@ pub const Entity = @import("Entity.zig").SyntApi;
 
 pub const Shapes = @import("Shapes.zig");
 pub const ActorStyle = @import("ActorStyle.zig");
+
+pub const Data = @import("data.zig");

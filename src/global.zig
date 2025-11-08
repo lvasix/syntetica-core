@@ -10,6 +10,7 @@ const Tile = @import("tile.zig");
 const Entity = @import("Entity.zig");
 const main = @import("root");
 const Texture = @import("Texture.zig");
+const Data = @import("data.zig");
 
 const chunk_size: comptime_int = 16;
 pub const alloc_size: comptime_int = 200;
@@ -37,8 +38,9 @@ pub var Variable: struct {
 
 /// global process's and manager's types for Syntetica engine.
 pub var Manager: struct {
+    data: Data.DataManager(":res") = undefined,
     entity: Entity.Manager(main._config.entity_list) = undefined,
-    texture: Texture.Manager(main._config.texture_list.?) = undefined,
+    texture: Texture.Manager(main._config.texture_list.?, Data.DataManager(":res")) = undefined,
 } = .{};
 
 /// Keybinds for Syntetica engine

@@ -14,14 +14,20 @@ const style_test = synt.ActorStyle.Part.body(.{
     },
 });
 
+const TestStruct = struct {
+    foo: u8 = 5,
+    bar: u32 = 4,
+    list: [5]u8 = .{5, 3, 2, 5, 6},
+};
+
 pub fn main() !void {
     try synt.init("hello", .{});
 
     const texture = try synt.global.Manager.texture.getTex(.test_texture);
-    std.debug.print("TEXTURE: {}", .{texture});
+    std.debug.print("TEXTURE: {}\n", .{texture});
 
     for(style_test.form.?) |part| {
-        std.debug.print("PART: {}", .{part});
+        std.debug.print("PART: {}\n", .{part});
     }
 
     while (synt.isRunning()) {

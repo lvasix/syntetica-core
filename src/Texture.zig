@@ -2,6 +2,7 @@ const std = @import("std");
 const rl = @import("raylib");
 const Texture = @This();
 const global = @import("global.zig");
+const Data = @import("data.zig");
 
 pub const Options = struct {
     pub const TextureType = enum {
@@ -37,7 +38,7 @@ pub const Meta = struct {
     }
 };
 
-pub fn Manager(comptime tex_meta: []const Meta) type {
+pub fn Manager(comptime tex_meta: []const Meta, data_mgr: type) type {
     var texture_fields: [tex_meta.len + 1]std.builtin.Type.EnumField = undefined;
 
     inline for(tex_meta, 0..) |meta, i| {
@@ -62,18 +63,25 @@ pub fn Manager(comptime tex_meta: []const Meta) type {
 
         loaded_textures: [tex_meta.len + 1]bool = [1]bool{false} ** (tex_meta.len + 1),
         tex_arr: [tex_meta.len + 1]Texture = undefined,
+        collection: data_mgr.Collection("tex") = undefined,
 
-        pub fn init() SelfManager {
-            return .{};
+        pub fn init() !SelfManager {
+            var obj = SelfManager{};
+            obj.collection = try .init(global.Variable.allocator);
+            return obj;
         }
 
         pub fn getTex(self: *SelfManager, tex: TextureEnum) !Texture {
             const index = @intFromEnum(tex);
 
-            const tex_path = try std.fmt.allocPrintSentinel(global.Variable.allocator, "{s}res/{s}", .{rl.getApplicationDirectory(), tex_meta[index].path}, 0);
+            const tex_name = try std.mem.concat(global.Variable.allocator, u8, &.{tex_meta[index].name, ".png"});
+            defer global.Variable.allocator.free(tex_name);
 
-            std.debug.print("CWD: {s}\n", .{rl.getWorkingDirectory()});
-            std.debug.print("PATH: {s}\n", .{tex_path});
+            const tex_path_ns = try self.collection.getFilePath(tex_name);
+            defer global.Variable.allocator.free(tex_path_ns);
+
+            const tex_path = try global.Variable.allocator.dupeZ(u8, tex_path_ns);
+            defer global.Variable.allocator.free(tex_path);
 
             // checks if the requested texture is loaded into GPU memory and loads it if not.
             if(!self.loaded_textures[index]) {
