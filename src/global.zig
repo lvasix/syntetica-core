@@ -11,6 +11,7 @@ const Entity = @import("Entity.zig");
 const main = @import("root");
 const Texture = @import("Texture.zig");
 const Data = @import("data.zig");
+const Renderer = @import("Renderer.zig");
 
 const chunk_size: comptime_int = 16;
 pub const alloc_size: comptime_int = 200;

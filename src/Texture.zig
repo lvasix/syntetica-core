@@ -2,6 +2,7 @@ const std = @import("std");
 const rl = @import("raylib");
 const Texture = @This();
 const global = @import("global.zig");
+const Vec2i = @import("global.zig").Vec2i;
 const Data = @import("data.zig");
 
 pub const Options = struct {
@@ -94,4 +95,13 @@ pub fn Manager(comptime tex_meta: []const Meta, data_mgr: type) type {
     };
 }
 
+/// raylib texture, you should not mess with this value manually
 rl_texture: rl.Texture = undefined,
+
+/// origin of the texture, if you have a texture atlas, this is 
+/// what defines at what point the texture starts
+origin: ?Vec2i = null,
+
+/// size of the texture, if you have a texture atlas, this is what
+/// what defines how many pixels from the source to render.
+size: ?Vec2i = null,

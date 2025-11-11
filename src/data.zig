@@ -185,8 +185,6 @@ pub fn DataManager(prefix: []const u8) type {
             const path = try self.prefix_dir.realpathAlloc(self.allocator, ".");
             defer self.allocator.free(path);
 
-            std.debug.print("PATH: {s}", .{path});
-
             return try std.mem.concat(self.allocator, u8, &.{path, "/", name});
         }
 
@@ -196,7 +194,6 @@ pub fn DataManager(prefix: []const u8) type {
             while(try it.next()) |_| {
                 stats += 1;
             }
-            std.debug.print("PREFIX SIZE: {}\n", .{stats});
             const paths: [][]const u8 = try self.allocator.alloc([]const u8, stats);
 
             it.reset();

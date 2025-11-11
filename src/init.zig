@@ -5,9 +5,12 @@ const rl = @import("raylib");
 const global = @import("global.zig");
 
 pub fn initManagers() !void {
-    global.Manager.texture = try @TypeOf(global.Manager.texture).init();
-    global.Manager.entity = try @TypeOf(global.Manager.entity).init(global.Variable.allocator);
-    global.Manager.data = try @TypeOf(global.Manager.data).init(global.Variable.allocator);
+    global.Manager.texture = 
+        try @TypeOf(global.Manager.texture).init();
+    global.Manager.entity = 
+        try @TypeOf(global.Manager.entity).init(global.Variable.allocator);
+    global.Manager.data = 
+        try @TypeOf(global.Manager.data).init(global.Variable.allocator);
 }
 
 pub fn initTaskManager() !void {

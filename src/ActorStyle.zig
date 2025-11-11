@@ -24,7 +24,7 @@ pub const Part = struct {
         texture: Texture = undefined
     };
 
-    const Class = enum {
+    pub const Class = enum {
         body, 
         leg, 
         arm, 
@@ -41,20 +41,24 @@ pub const Part = struct {
     class: Class = .none,
     form: ?[]const Part = null,
     id: u32 = 0,
-    texture: Texture = undefined,
+    texture: Texture = .undef,
     offset: Vec2(i32) = .val(0, 0),
     spline: ?Spline = .{},
     anchor: Anchor = .none,
+    size: global.Vec2i,
 
     pub fn body(elem: struct {
         anchor: Anchor = .none,
+        size: global.Vec2i = .val(20, 20),
         form: []const Part,
         texture: Texture = .undef,
     }) Part {
         return .{
             .class = .body,
+            .size = elem.size,
             .anchor = elem.anchor,
             .form = elem.form,
+            .texture = elem.texture,
         };
     }
 
@@ -63,6 +67,7 @@ pub const Part = struct {
         texture: Texture = .undef,
         offset: Vec2(i32) = .val(0, 0),
         spline: ?Spline = null,
+        size: global.Vec2i = .val(20, 20),
     }) Part {
         return .{
             .class = .leg,
@@ -70,6 +75,7 @@ pub const Part = struct {
             .texture = elem.texture,
             .offset = elem.offset,
             .spline = elem.spline,
+            .size = elem.size,
         };
     }
 
@@ -78,6 +84,7 @@ pub const Part = struct {
         texture: Texture = .undef,
         offset: Vec2(i32) = .val(0, 0),
         spline: ?Spline = null,
+        size: global.Vec2i = .val(20, 20),
     }) Part {
         return .{
             .class = .arm,
@@ -85,6 +92,7 @@ pub const Part = struct {
             .id = elem.id,
             .offset = elem.offset,
             .spline = elem.spline,
+            .size = elem.size,
         };
     }
 
@@ -93,6 +101,7 @@ pub const Part = struct {
         anchor: Anchor = .none,
         offset: Vec2(i32) = .val(0, 0),
         texture: Texture = .undef,
+        size: global.Vec2i = .val(20, 20),
     }) Part {
         return .{
             .class = .head,
@@ -100,6 +109,7 @@ pub const Part = struct {
             .anchor = elem.anchor,
             .offset = elem.offset,
             .texture = elem.texture,
+            .size = elem.size,
         };
     }
 

@@ -412,47 +412,52 @@ pub fn DataContainer(DataType: type) type {
     };
 }
 
-const global = @import("global.zig");
-
 /// Functions and wrappers for easier interfacing with syntetica engine.
-pub const SyntApi = struct {
-    var mgr = &global.Manager.entity;
-    
-    /// API struct for making new entities.
-    pub const api = struct {
-        /// arguments for init, tick and kill functions 
-        pub const args = *fnArgs;
+/// This is defined as a function in order for this file to work as a standalone module.
+///
+/// @param global global variable type for syntetica.
+///
+/// @return syntetica api namespace
+pub fn SyntApi(global: type) type {
+    return struct {
+        var mgr = &global.Manager.entity;
+        
+        /// API struct for making new entities.
+        pub const api = struct {
+            /// arguments for init, tick and kill functions 
+            pub const args = *fnArgs;
 
-        /// get the struct required for aquiring 
-        /// entity data.
-        pub fn Data(DataType: type) type {
-            return DataContainer(DataType);
+            /// get the struct required for aquiring 
+            /// entity data.
+            pub fn Data(DataType: type) type {
+                return DataContainer(DataType);
+            }
+        };
+
+        /// Spawns a new entity into the world
+        pub fn spawn(entity: @TypeOf(mgr.*).EntEnum, pos: Vec2) !*@TypeOf(mgr.*).WorldEntity {
+            const id = try mgr.spawn(entity);
+            const ptr = mgr.getEntityPtr(id);
+
+            ptr.pos = pos;
+
+            return ptr;
+        }
+
+        /// Kills an entity using its unique entity ID.
+        pub fn kill(eid: usize) void {
+            mgr.kill(eid);
+        }
+
+        /// Kills all entities of specific type
+        pub fn killAll(etype: @TypeOf(mgr.*).EntEnum) !void {
+            for(try mgr.world_entities.listIDs()) |ent| {
+                if(mgr.getEntityPtr(ent).entity_type == etype) 
+                    mgr.kill(ent);
+            }
         }
     };
-
-    /// Spawns a new entity into the world
-    pub fn spawn(entity: @TypeOf(mgr.*).EntEnum, pos: Vec2) !*@TypeOf(mgr.*).WorldEntity {
-        const id = try mgr.spawn(entity);
-        const ptr = mgr.getEntityPtr(id);
-
-        ptr.pos = pos;
-
-        return ptr;
-    }
-
-    /// Kills an entity using its unique entity ID.
-    pub fn kill(eid: usize) void {
-        mgr.kill(eid);
-    }
-
-    /// Kills all entities of specific type
-    pub fn killAll(etype: @TypeOf(mgr.*).EntEnum) !void {
-        for(try mgr.world_entities.listIDs()) |ent| {
-            if(mgr.getEntityPtr(ent).entity_type == etype) 
-                mgr.kill(ent);
-        }
-    }
-};
+}
 
 // ////////////////////////////////////////////////////// 
 // / UNIT TESTS ///////////////////////////////////////// 
