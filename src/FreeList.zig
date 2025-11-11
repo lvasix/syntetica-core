@@ -63,6 +63,10 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             next_id: usize = 0,
             count: usize = 0,
 
+            /// if null - use ._start as the iterator start, else 
+            /// use the custom_start as the iterator start.
+            custom_start: ?usize = null,
+
             /// inclusive, this id will be iterated over.
             end_at: ?usize = null,
 
@@ -100,6 +104,21 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
                 return ret;
             }
 
+            /// Make the next id be a custom value.
+            ///
+            /// @param self The Iterator.
+            /// @param id The id of the next node.
+            ///
+            /// @return void.
+            pub fn changeNext(self: *Iterator, id: usize) void {
+                self.next_id = id;
+            }
+
+            /// Returns the pointer to the data at the current id.
+            ///
+            /// @param self The iterator.
+            /// 
+            /// @return pointer to current data.
             pub fn getPtr(self: *Iterator) *DataType {
                 return &self.fl.data[self.current_id];
             }
@@ -111,7 +130,8 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             /// @return void or error if the list is empty.
             pub fn reset(self: *Iterator) FreeListError!void {
                 self.count = 0;
-                self.next_id = self.fl._start orelse 
+                const start = self.custom_start orelse self.fl._start;
+                self.next_id = start orelse 
                     return FreeListError.start_does_not_exist;
                 self.current_id = 0;
             }
@@ -138,6 +158,32 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
 
         /// allocator
         allocator: std.mem.Allocator = undefined,
+
+        /// Intenal function, marks the next id as taken and returns it, increments the 
+        /// occupied tracker
+        ///
+        /// @param self The FreeList.
+        ///
+        /// @return taken ID.
+        fn takeID(self: *Self) usize {
+            const id = self._free_space[self.data.len - self._occupied - 1] orelse unreachable;
+            self._free_space[self.data.len - self._occupied - 1] = null;
+            self._occupied += 1;
+
+            return id;
+        }
+
+        /// Internal function, marks the give ID as available, decrements the 
+        /// occupied tracker
+        ///
+        /// @param self The FreeList
+        /// @param id the ID to mark as available 
+        ///
+        /// @return void
+        fn giveID(self: *Self, id: usize) void {
+            self._free_space[self.data.len - self._occupied] = id;
+            self._occupied -= 1;
+        }
 
         /// Internal function used for checking the size of the internal 
         /// data, _data_info and _free_space arrays.
@@ -254,6 +300,24 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             return obj;
         }
 
+        /// Returns the index a value would be inserted at without inserting anything. The 
+        /// Index becomes invalid as soon as a new value is inserted into the free list.
+        ///
+        /// @param self The FreeList.
+        ///
+        /// @return insertion index.
+        ///
+        /// Example:
+        /// ```Zig 
+        /// var fl: ... = ...;
+        /// const id = fl.peekInsertionIndex();
+        /// const id1 = fl.insert(A);
+        /// // id == id1 here.
+        /// ```
+        pub fn peekInsertionIndex(self: *Self) usize {
+            return self._free_space[self.data.len - self._occupied - 1] orelse unreachable;
+        }
+
         /// Inserts new value into the SimpleLinkedFreeList. The inserted id stays valid
         /// until it's removed from the list using .deleteID(), after which, accessing
         /// it is UB (you will get junk data).
@@ -272,11 +336,7 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             if(self._initialized == false) return FreeListError.not_initialized;
             try self.checkAndResize();
 
-            const id = 
-                self._free_space[self.data.len - self._occupied - 1] orelse unreachable;
-            self._free_space[self.data.len - self._occupied - 1] = null;
-            self._occupied += 1;
-
+            const id = self.takeID();
             self.link(id);
 
             // assign the data to the reserved ID
@@ -305,21 +365,18 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             if(self._initialized == false) return FreeListError.not_initialized;
             try self.checkAndResizeN(slice.len - 1);
 
-            const start = 
-                self._free_space[self.data.len - self._occupied - 1] orelse unreachable;
-            self._free_space[self.data.len - self._occupied - 1] = null;
-            self._occupied += 1;
+            const start = self.takeID();
 
             self.data[start] = slice[0];
 
             self.link(start);
 
+            // edge case where we add a slice to a list containing 0 elements.
+            if(self._start == null) self._start = start;
+
             var end: usize = 0;
             for(slice[1..]) |data| {
-                const id =
-                    self._free_space[self.data.len - self._occupied - 1] orelse unreachable;
-                self._free_space[self.data.len - self._occupied - 1] = null;
-                self._occupied += 1;
+                const id = self.takeID();
 
                 self.link(id);
 
@@ -353,13 +410,14 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
 
             // check if the slice has a root node
             var slice_root: ?usize = null; // if null - no root
-            var it = self.createSliceIterator(slice); // create a slice iterator
+            var it = try self.createSliceIterator(slice); // create a slice iterator
             while(it.next()) |_| {
                 // if there's a root node, assign the slice_root var accordingly
                 if(it.current_id == start){ 
-                    slice_root.? = it.current_id;
-                    break; // there can't be multiple root nodes
+                    slice_root = it.current_id;
                 }
+
+                self.giveID(it.current_id);
             }
 
             // slice's previous and next nodes
@@ -372,20 +430,20 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
                 self._data_info[prev_id].next = next_id;
                 self._data_info[next_id].prev = prev_id;
             } else { // but if it does contain a root node.
-                // check if the root node happens to be the last node
+                // check if we are removing the last nodes
                 if(self._occupied <= 1) {
                     self._start = null;
                     return;
                 }
 
-                // set the root to the slice's previous node.
-                self._start = prev_id;
+                // set the root to the slice's next node.
+                self._start = next_id;
 
-                // set the new root's next to the slice's next
-                self._data_info[self._start].next = next_id;
+                // set the previous node's next to the chain's next
+                self._data_info[prev_id].next = next_id;
 
-                // set the previous node of the slice's next, to the root.
-                self._data_info[next_id].prev = self._start;
+                // set the next node's previous to the chain's previous
+                self._data_info[next_id].prev = prev_id;
             }
         }
 
@@ -399,9 +457,6 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
         ///
         /// @return void
         pub fn deleteID(self: *Self, id: usize) void {
-            // add the id back to stack
-            self._free_space[self.data.len - self._occupied] = id;
-
             // handle edge case when deleting a root node which is also last
             if(self._start == id and self._occupied <= 1) {
                 self._start = null;
@@ -415,8 +470,7 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
                 }
             }
 
-            // decrement the element count
-            self._occupied -= 1;
+            self.giveID(id);
         }
 
         /// Returns the data stored at a specified ID
@@ -508,14 +562,21 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             return .{
                 .fl = self,
                 .next_id = slice.start,
+                .custom_start = slice.start,
                 .end_at = slice.end,
             };
         }
 
-        pub fn find(self: *Self, cmp_data: DataType) !usize {
-            for(try self.listIDs()) |id| {
-                const data = self.get(id);
-                if(std.meta.eql(data, cmp_data)) return id;
+        /// Finds a needle in the FreeList, O(n).
+        ///
+        /// @param self The freelist.
+        /// @param cmp_data The needle to find.
+        ///
+        /// @return index of the needle or error if it can't be found
+        pub fn find(self: *Self, cmp_data: DataType) FreeListError!usize {
+            var it = try self.createIterator();
+            for(it.next()) |data| {
+                if(std.meta.eql(data, cmp_data)) return it.current_id;
             }
             return FreeListError.element_not_found;
         }
@@ -629,7 +690,7 @@ test "SimpleLinkedFreeList.Iterator.reset" {
     defer fl.release();
 
     _ = try fl.insert(5);
-    _ = try fl.insert(4);
+    const id1 = try fl.insert(4);
 
     var it = try fl.createIterator();
 
@@ -642,6 +703,12 @@ test "SimpleLinkedFreeList.Iterator.reset" {
     try testing.expectEqual(0, it.count);
     try testing.expectEqual(it.fl._start, it.next_id);
     try testing.expectEqual(0, it.current_id);
+
+    it.custom_start = @intCast(id1);
+    try it.reset();
+    _ = it.next();
+
+    try testing.expectEqual(it.custom_start, it.current_id);
 }
 
 test "SimpleLinkedFreeList.insertSlice" { 
