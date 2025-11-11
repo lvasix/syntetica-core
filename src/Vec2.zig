@@ -16,9 +16,6 @@ pub fn PhVec(T: type) type {
             const y = @sin(self.direction) * self.magnitute;
             const x = @sqrt(self.magnitute * self.magnitute - y * y);
 
-            std.debug.print("X: sin({}) * {} = {}\n", .{self.direction, self.magnitute, x});
-            std.debug.print("Y: {}\n", .{y});
-
             return .val(x, y);
         }
     };
@@ -57,12 +54,8 @@ pub fn Vec2(T: type) type {
 
         pub fn toPhVec(self: Self) PhVec(T) {
             const magnitute: T = @sqrt(self.x * self.x + self.y * self.y);
-            std.debug.print("MAGN: {}", .{magnitute});
             
             const dir = std.math.asin(self.y / magnitute);
-
-            std.debug.print("ASIN: asin({}/{}) = {}\n", .{self.y, magnitute, std.math.asin(self.y / magnitute)});
-            std.debug.print("NEW VECTOR: {} {}\n", .{magnitute, dir});
 
             return .{.magnitute = magnitute, .direction = dir};
         }
@@ -114,9 +107,23 @@ pub fn Vec2(T: type) type {
             if(self.getMagnitude() < v) return;
             self.setMagnitude(v);
         }
-    };
-}
 
-pub fn vec2(x: anytype, y: @TypeOf(x)) Vec2(@TypeOf(x)) {
-    return Vec2(@TypeOf(x)).val(x, y);
+        pub fn rotate(self: *Self, point: Self, rad: f32) void {
+            const cos = @cos(rad);
+            const sin = @sin(rad);
+
+            self.sub(point);
+
+            const newp: Self = .{};
+            newp.x = self.x * cos - self.y * sin;
+            newp.y = self.x * sin + self.y * cos;
+
+            newp.add(point);
+            self = newp;
+        }
+
+        pub fn dot(self: Self, p2: Self) f32 {
+            return self.x * p2.x + self.y * p2.y;
+        }
+    };
 }
