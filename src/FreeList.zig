@@ -1,6 +1,7 @@
 //! FreeList implementation for Syntetica Engine.
 
 const std = @import("std");
+const QueueList = @import("default/QueueList.zig");
 
 /// This structure defines a range in the free list
 pub const FreeListSlice = struct {
@@ -45,6 +46,7 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             next: usize,
         };
 
+        /// errors the list can return
         const FreeListError = error {
             element_not_found,
             start_does_not_exist,
@@ -61,33 +63,52 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
             prev_id: usize = 0,
             current_id: usize = 0,
             next_id: usize = 0,
+            /// the number of elements that have passed
             count: usize = 0,
 
             /// if null - use ._start as the iterator start, else 
             /// use the custom_start as the iterator start.
             custom_start: ?usize = null,
 
-            /// inclusive, this id will be iterated over.
+            /// inclusive, this id **will** be iterated over.
             end_at: ?usize = null,
 
-            /// Get the pointer to the next element in the chain.
+            /// Get the next element in the chain. If the reference to the next 
+            /// element is desired, use the .nextPtr() function.
+            /// NOTE: This function is meant to be used with a
+            ///       while loop.
             ///
             /// @param self The iterator.
             ///
-            /// @return DataType pointer.
+            /// @return DataType or null when at the end of the chain
             ///
             /// Example:
             /// ```Zig
             /// // this function is meant to be used inside a while loop
             /// var it = fl.createIterator();
             /// while(it.next()) |data| {
-            ///     // ... do something with the data pointer
+            ///     // ... do something with the data
             /// }
             /// ```
             pub fn next(self: *Iterator) ?DataType {
                 return if(self.nextPtr()) |val| val.* else null;
             }
 
+            /// Get the pointer to the next element in the chain.
+            /// NOTE: This function is meant to be used with a
+            ///       while loop.
+            ///
+            /// @param self The iterator 
+            ///
+            /// @return Datatype pointer or null when at the end of the chain
+            ///
+            /// Example:
+            /// ```Zig
+            /// var it = fl.createIterator();
+            /// while(it.nextPtr()) |data| {
+            ///     // ... do something with the data pointer
+            /// }
+            /// ```
             pub fn nextPtr(self: *Iterator) ?*DataType {
                 self.current_id = self.next_id;
 
@@ -162,10 +183,13 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
         _free_space: []?usize = undefined,
         
         /// First element of the linked list
-        _start: ?usize = null, 
+        _start: ?usize = null,
+
+        /// keeps track of how many IDs are occupied inside the list
         _occupied: usize = 0,
 
         /// used for easier iterating over the freelist
+        /// DEPRECEATED - use Iterator
         _compact_list: []usize = &[0]usize{},
 
         /// allocator
@@ -176,7 +200,7 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
         ///
         /// @param self The FreeList.
         ///
-        /// @return taken ID.
+        /// @return taken ID
         fn takeID(self: *Self) usize {
             const id = self._free_space[self.data.len - self._occupied - 1] orelse unreachable;
             self._free_space[self.data.len - self._occupied - 1] = null;
@@ -622,11 +646,173 @@ pub fn SimpleLinkedFreeList(DataType: type, alloc_size: usize) type {
     };
 }
 
+pub fn ManyTypeLinkedFreeList(alloc_size: usize) type {
+    return struct {
+        const Self = @This();
+        pub fn ListID(T: type) type {
+            return struct {
+                pub const Type = T;
+                start: usize = 0,
+                size: usize = 0,
+            };
+        }
+
+        const Occupant = struct {
+            /// queue of IDs
+            free: QueueList.QueueLIFO(usize, alloc_size),
+        };
+
+        allocator: std.mem.Allocator,
+        
+        /// the actual data is stored as a simple array of bytes
+        data: []u8,
+
+        occupied: usize = 0,
+        free_space: std.AutoHashMap(usize, Occupant),
+        links: std.DoublyLinkedList,
+
+        fn ensureEnoughCapacity(self: *Self, size: usize) !void {
+            if(self.occupied + size <= self.data.len) return; // enough capacity 
+            
+            // this formula figures out the required size for n-amount of bytes
+            const new_size = (@divTrunc(self.occupied + size, alloc_size) + 1) * alloc_size;
+            self.data = try self.allocator.realloc(self.data, new_size);
+        }
+
+        fn validateIDType(T: type) void {
+            comptime {
+                if(!@hasField(T, "start")) 
+                    @compileError("ListID type must have start field")
+                else if(@FieldType(T, "start") != usize) 
+                    @compileError("ListID's field \"start\" must be of type usize")
+                
+                else if(!@hasField(T, "size")) 
+                    @compileError("ListID type must have size field")
+                else if(@FieldType(T, "size") != usize) 
+                    @compileError("ListID's field \"size\" must be of type usize")
+
+                else if(!@hasDecl(T, "Type"))
+                    @compileError("ListID type must have a declaration of the type it represents.");
+            }
+        }
+
+        pub fn printMemInfo(self: *Self) void {
+            std.debug.print("--------- DUMP START ---------\n", .{});
+
+            std.debug.print("DATA: ", .{});
+            for (self.data) |value| {
+                std.debug.print("{X:02} ", .{value});
+            }
+            std.debug.print("\n", .{});
+
+            std.debug.print("MAP: \n", .{});
+            var it = self.free_space.iterator();
+            while(it.next()) |entry| {
+                std.debug.print("  SIZE: {} -> ", .{entry.key_ptr.*});
+                for(entry.value_ptr.free.data[0..entry.value_ptr.free._occupied]) |id| {
+                    std.debug.print("{} ", .{id});
+                }
+                std.debug.print("\n", .{});
+            }
+
+            std.debug.print("---------- DUMP END ----------\n", .{});
+        }
+        
+        pub fn init(allocator: std.mem.Allocator) !Self {
+            return .{
+                .allocator = allocator,
+                .data = try allocator.alloc(u8, alloc_size),
+                .free_space = .init(allocator),
+                .links = 
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            var it = self.free_space.iterator();
+            while(it.next()) |entry| {
+                entry.value_ptr.free.deinit();
+            }
+            self.free_space.deinit();
+            self.allocator.free(self.data);
+        }
+
+        pub fn insert(self: *Self, comptime data: anytype) !ListID(@TypeOf(data)) {
+            const data_size = @sizeOf(@TypeOf(data));
+
+            const occupant = self.free_space.getPtr(data_size);
+
+            // check if there's space already available for this size
+            var id: usize = 0;
+            if(occupant != null and occupant.?.free._occupied > 0) {
+                id = try occupant.?.free.take();
+            } else { // if not, allocate new andor append to the unused space
+                try self.ensureEnoughCapacity(data_size);
+                id = self.occupied;
+            }
+
+            self.occupied += data_size;
+
+            std.debug.print("recieved ID: {}\n", .{id});
+
+            var data_bytes_slice: []const u8 = @ptrCast(&data);
+            data_bytes_slice.len = data_size;
+
+            // copy the bytes over to the data array
+            @memcpy(self.data[id..id + data_size], data_bytes_slice);
+
+            return ListID(@TypeOf(data)){
+                .start = id,
+                .size = data_size,
+            };
+        }
+
+        pub fn insertSlice() !FreeListSlice {}
+
+        pub fn deleteID(self: *Self, id: anytype) !void {
+            comptime validateIDType(@TypeOf(id));
+
+            if(self.free_space.getPtr(id.size)) |val| {
+                _ = try val.free.insert(id.start);
+            } else {
+                var occ: Occupant = .{.free = undefined};
+                occ.free = try @TypeOf(occ.free).init(self.allocator);
+                _ = try occ.free.insert(id.start);
+                try self.free_space.put(id.size, occ);
+            }
+            self.occupied -= id.size;
+        }
+
+        pub fn deleteSlice() !void {}
+
+        pub fn get(self: *Self, id: anytype) @TypeOf(id).Type {
+            return self.getPtr(id).*;
+        }
+
+        pub fn getPtr(self: *Self, id: anytype) *@TypeOf(id).Type {
+            comptime validateIDType(@TypeOf(id));
+
+            var bytes: []u8 = self.data[id.start..];
+            bytes.len = id.size;
+
+            const cast_type_ptr: *@TypeOf(id).Type = @alignCast(@ptrCast(bytes));
+            return cast_type_ptr;
+        }
+    };
+}
+
 const freelist = @This();
 const testing = std.testing;
 const testing_alloc_size = 20;
 
 const FL = SimpleLinkedFreeList(u8, testing_alloc_size);
+
+test "FreeListSlice(types)" {
+    // check if the slice is big enough to hold indexes
+    const foo = FreeListSlice{};
+    try testing.expectEqual(usize, @TypeOf(foo.start));
+    try testing.expectEqual(usize, @TypeOf(foo.end));
+    try testing.expectEqual(usize, @TypeOf(foo.size));
+}
 
 test "SimpleLinkedFreeList.init" {
     var fl = try FL.init(testing.allocator);
