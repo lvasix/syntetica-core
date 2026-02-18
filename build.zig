@@ -19,7 +19,7 @@ const Library = struct {
 
     pub fn addModule(self: *Library, comptime name: []const u8) *std.Build.Module {
         const mod = self.b.addModule(name, .{
-            .root_source_file = self.b.path("src/back/" ++ name ++ ".zig"),
+            .root_source_file = self.b.path("src/" ++ name ++ ".zig"),
             .optimize = self.optimize,
             .target = self.target,
         });
@@ -79,24 +79,6 @@ pub fn build(b: *std.Build) void {
     syntetica_core.addLibrary("raygui", raygui);
 
     syntetica_core.confirm();
-
-    const syntetica_app = b.addExecutable(.{
-        .name = "syntetica",
-        .root_module = b.addModule("interface", .{
-            .root_source_file = b.path("src/app/root.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
-    });
-    syntetica_app.root_module.linkLibrary(raylib_artifact);
-    syntetica_app.root_module.addImport("syntetica", syntetica_core.core);
-    syntetica_app.root_module.addImport("raylib", raylib);
-    syntetica_app.root_module.addImport("raygui", raygui);
-    const run_app_step = b.addRunArtifact(syntetica_app);
-
-    const app_step = b.step("run", "Run the game engine application");
-    app_step.dependOn(&syntetica_app.step);
-    app_step.dependOn(&run_app_step.step);
 
     // // EXAMPLES ///////////////////////////
     // const examples = [_][]const u8{
