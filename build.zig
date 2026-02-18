@@ -18,7 +18,7 @@ const Library = struct {
     }
 
     pub fn addModule(self: *Library, comptime name: []const u8) *std.Build.Module {
-        const mod = self.b.addModule(name, .{
+        const mod = self.b.createModule(.{
             .root_source_file = self.b.path("src/" ++ name ++ ".zig"),
             .optimize = self.optimize,
             .target = self.target,
@@ -50,8 +50,8 @@ pub fn build(b: *std.Build) void {
         .b = b,
         .optimize = optimize,
         .target = target,
-        .core = b.addModule("syntetica", .{
-            .root_source_file = b.path("src/back/root.zig"),
+        .core = b.addModule("syntetica_core", .{
+            .root_source_file = b.path("src/root.zig"),
             .optimize = optimize,
             .target = target,
         }),
