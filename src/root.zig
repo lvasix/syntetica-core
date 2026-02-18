@@ -2,6 +2,7 @@
 
 const std = @import("std");
 pub const rl = @import("raylib");
+pub const rlgui = @import("raygui");
 
 const log = std.log.scoped(.root);
 
