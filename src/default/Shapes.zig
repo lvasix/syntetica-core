@@ -1,6 +1,6 @@
 const global = @import("global.zig");
 const rl = @import("raylib");
-const math = @import("math.zig");
+const math = @import("default").math;
 const std = @import("std");
 
 pub const Square = struct {

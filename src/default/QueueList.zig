@@ -40,7 +40,7 @@ pub fn QueueLIFO(QueueT: type, alloc_size: usize) type {
         /// Example
         /// ```Zig 
         /// var q: QueueLIFO(..., ...) = .init(ALLOCATOR);
-        /// defer q.free(); // don't forget to free!!
+        /// defer q.deinit(); // don't forget to free!!
         /// ```
         pub fn init(allocator: std.mem.Allocator) !Self {
             return .{
@@ -54,7 +54,7 @@ pub fn QueueLIFO(QueueT: type, alloc_size: usize) type {
         /// Releases resources used by the Queue back to the system
         ///
         /// @return void 
-        pub fn free(self: *Self) void {
+        pub fn deinit(self: *Self) void {
             self.allocator.free(self.data);
             self._initialized = false;
         }
@@ -69,7 +69,7 @@ pub fn QueueLIFO(QueueT: type, alloc_size: usize) type {
         /// Example:
         /// ```Zig
         /// var q: ... = ...;
-        /// defer q.free();
+        /// defer q.deinit();
         ///
         /// const PTR = try q.insert(DATA_TYPE);
         /// ```
@@ -87,7 +87,7 @@ pub fn QueueLIFO(QueueT: type, alloc_size: usize) type {
         /// Example:
         /// ```Zig
         /// var q: ... = ...;
-        /// defer q.free();
+        /// defer q.deinit();
         ///
         /// _ = try q.insert(5);
         /// const DATA = try q.take();
@@ -104,6 +104,32 @@ pub fn QueueLIFO(QueueT: type, alloc_size: usize) type {
             return item;
         }
 
+        /// Takes (reads, removes and returns) the next element from the Queue.
+        ///
+        /// @return The element or null if no elements are left
+        ///
+        /// Example:
+        /// ```Zig
+        /// var q: ... = ...;
+        /// defer q.deinit();
+        ///
+        /// _ = try q.insert(5);
+        /// _ = try q.insert(6);
+        /// _ = try q.insert(7);
+        ///
+        /// while(q.next()) |val| {
+        ///     // ... (do something with value)
+        /// }
+        /// ```
+        pub fn next(self: *Self) ?QueueT {
+            if(self._occupied <= 0) return null;
+
+            self._occupied -= 1;
+            const item = self.data[self._occupied];
+
+            return item;
+        }
+
         /// Only reads the next element from the Queue.
         ///
         /// @return The element or error if the queue is empty
@@ -111,7 +137,7 @@ pub fn QueueLIFO(QueueT: type, alloc_size: usize) type {
         /// Example:
         /// ```Zig
         /// var q: ... = ...;
-        /// defer q.free();
+        /// defer q.deinit();
         ///
         /// _ = try q.insert(5);
         /// const DATA = try q.peek();
@@ -127,7 +153,7 @@ pub fn QueueLIFO(QueueT: type, alloc_size: usize) type {
 
         test "checkAndResize" {
             var q: QueueLIFO(u8, 5) = try .init(testing.allocator);
-            defer q.free();
+            defer q.deinit();
 
             q._occupied = 5;
             try q.checkAndResize();
@@ -140,7 +166,7 @@ pub fn QueueLIFO(QueueT: type, alloc_size: usize) type {
 const testing = std.testing;
 test "insert" {
     var q: QueueLIFO(u8, 5) = try .init(testing.allocator);
-    defer q.free();
+    defer q.deinit();
 
     const ptr = try q.insert(10);
     try testing.expectEqual(10, q.data[0]);
@@ -158,7 +184,7 @@ test "insert" {
 
 test "take" {
     var q: QueueLIFO(u8, 5) = try .init(testing.allocator);
-    defer q.free();
+    defer q.deinit();
 
     // trying to take out an ID in an empty Queue should return 
     // an error.
@@ -189,7 +215,7 @@ test "take" {
 
 test "peek" {
     var q: QueueLIFO(u8, 5) = try .init(testing.allocator);
-    defer q.free();
+    defer q.deinit();
 
     // trying to take out an ID in an empty Queue should return 
     // an error.

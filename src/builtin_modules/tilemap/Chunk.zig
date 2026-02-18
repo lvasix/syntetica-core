@@ -1,5 +1,5 @@
-const Vec2i = @import("Vec2.zig").Vec2(i64);
-const Vec2u = @import("Vec2.zig").Vec2(u64);
+const Vec2i = @import("default").Vec2i;
+const Vec2u = @import("default").Vec2u;
 
 const chunk_err = error {
     out_of_bounds_access,

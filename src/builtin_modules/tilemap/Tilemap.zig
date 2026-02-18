@@ -1,12 +1,9 @@
-//! By convention, root.zig is the root source file when making a library. If
-//! you are making an executable, the convention is to delete this file and
-//! start with main.zig instead.
 const std = @import("std");
 const testing = std.testing;
 
-const Vec2 = @import("Vec2.zig").Vec2(f64);
-const Vec2u = @import("Vec2.zig").Vec2(u64);
-const Vec2i = @import("Vec2.zig").Vec2(i64);
+const Vec2 = @import("default").math.Vec2;
+const Vec2u = @import("default").math.Vec2u;
+const Vec2i = @import("default").math.Vec2i;
 const Chunk = @import("Chunk.zig").Chunk;
 
 const tmerr = error{

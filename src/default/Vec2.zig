@@ -28,6 +28,14 @@ pub fn Vec2(T: type) type {
 
         const Self = @This();
 
+        pub fn init(x: T, y: T) Self {
+            return .{.x = x, .y = y};
+        }
+
+        pub fn initScalar(v: T) Self {
+            return .{.x = v, .y = v};
+        }
+
         pub fn val(x: T, y: T) Self {
             return .{.x = x, .y = y};
         }
@@ -47,9 +55,19 @@ pub fn Vec2(T: type) type {
             self.y += b.y;
         }
 
+        pub fn addScalar(self: *Self, v: T) void {
+            self.x += v;
+            self.y += v;
+        }
+
         pub fn sub(self: *Self, b: Self) void {
             self.x -= b.x;
             self.y -= b.y;
+        }
+
+        pub fn subScalar(self: *Self, v: T) void {
+            self.x -= v;
+            self.y -= v;
         }
 
         pub fn toPhVec(self: Self) PhVec(T) {

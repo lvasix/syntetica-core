@@ -1,7 +1,7 @@
 //! FreeList implementation for Syntetica Engine.
 
 const std = @import("std");
-const QueueList = @import("default/QueueList.zig");
+const QueueList = @import("QueueList.zig");
 
 /// This structure defines a range in the free list
 pub const FreeListSlice = struct {
@@ -669,7 +669,7 @@ pub fn ManyTypeLinkedFreeList(alloc_size: usize) type {
 
         occupied: usize = 0,
         free_space: std.AutoHashMap(usize, Occupant),
-        links: std.DoublyLinkedList,
+        links: std.DoublyLinkedList = undefined,
 
         fn ensureEnoughCapacity(self: *Self, size: usize) !void {
             if(self.occupied + size <= self.data.len) return; // enough capacity 
@@ -723,7 +723,6 @@ pub fn ManyTypeLinkedFreeList(alloc_size: usize) type {
                 .allocator = allocator,
                 .data = try allocator.alloc(u8, alloc_size),
                 .free_space = .init(allocator),
-                .links = 
             };
         }
 
@@ -761,6 +760,28 @@ pub fn ManyTypeLinkedFreeList(alloc_size: usize) type {
             @memcpy(self.data[id..id + data_size], data_bytes_slice);
 
             return ListID(@TypeOf(data)){
+                .start = id,
+                .size = data_size,
+            };
+        }
+
+        pub fn reserveBytes(self: *Self, amount_of_bytes: usize) !ListID(void) {
+            const data_size = amount_of_bytes;
+
+            const occupant = self.free_space.getPtr(data_size);
+
+            // check if there's space already available for this size
+            var id: usize = 0;
+            if(occupant != null and occupant.?.free._occupied > 0) {
+                id = try occupant.?.free.take();
+            } else { // if not, allocate new andor append to the unused space
+                try self.ensureEnoughCapacity(data_size);
+                id = self.occupied;
+            }
+
+            self.occupied += data_size;
+
+            return ListID(void){
                 .start = id,
                 .size = data_size,
             };

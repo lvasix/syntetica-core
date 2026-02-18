@@ -1,5 +1,4 @@
 const std = @import("std");
-const global = @import("global.zig");
 
 pub const Vec2 = @import("Vec2.zig").Vec2(f32);
 pub const Vec2i = @import("Vec2.zig").Vec2(i32);
