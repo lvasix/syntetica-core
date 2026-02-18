@@ -1,69 +1,70 @@
 const std = @import("std");
-const sdl = @import("SDL2");
 
-fn addSyntetica(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, exe: *std.Build.Step.Compile) void {
-    const syntetica_mod = b.createModule(.{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    exe.root_module.addImport("syntetica", syntetica_mod);
-//    syntetica_mod.addIncludePath(b.path("./src/eng/"));
+const Library = struct {
+    const ModuleList = std.ArrayList(struct{mod: *std.Build.Module, name: []const u8});
 
-    const syntetica = b.addLibrary(.{
-        .linkage = .dynamic,
-        .name = "syntetica",
-        .root_module = syntetica_mod,
-    });
-    syntetica.root_module.addIncludePath(b.path("./src/eng/"));
-    b.installArtifact(syntetica);
-//    syntetica.addIncludePath(b.path("src/"));
-    
-    const sdl3 = b.dependency("sdl3", .{
-        .target = target,
-        .optimize = optimize,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    b: *std.Build,
+    core: *std.Build.Module,
 
-    // Lib options.
-    // .callbacks = false,
-    .ext_image = true,
+    modules: ModuleList = undefined,
+    allocator: std.mem.Allocator = std.heap.page_allocator,
 
-    // Options passed directly to https://github.com/castholm/SDL (SDL3 C Bindings):
-    // .c_sdl_preferred_linkage = .static,
-    // .c_sdl_strip = false,
-    // .c_sdl_sanitize_c = .off,
-    // .c_sdl_lto = .none,
-    // .c_sdl_emscripten_pthreads = false,
-    // .c_sdl_install_build_config_h = false,
+    pub fn init(self: *Library, allocator: std.mem.Allocator) void {
+        self.allocator = allocator;
+        self.modules = ModuleList.initCapacity(self.allocator, 10) catch @panic("");
+        self.modules.append(self.allocator, .{ .name = "syntetica", .mod = self.core }) catch @panic("");
+    }
 
-    // Options if `ext_image` is enabled:
-    // .image_enable_bmp = true,
-    // .image_enable_gif = true,
-    // .image_enable_jpg = true,
-    // .image_enable_lbm = true,
-    // .image_enable_pcx = true,
-    .image_enable_png = true,
-    // .image_enable_pnm = true,
-    // .image_enable_qoi = true,
-    // .image_enable_svg = true,
-    // .image_enable_tga = true,
-    // .image_enable_xcf = true,
-    // .image_enable_xpm = true,
-    // .image_enable_xv = true,
-    });
+    pub fn addModule(self: *Library, comptime name: []const u8) *std.Build.Module {
+        const mod = self.b.addModule(name, .{
+            .root_source_file = self.b.path("src/back/" ++ name ++ ".zig"),
+            .optimize = self.optimize,
+            .target = self.target,
+        });
 
-    syntetica.root_module.addImport("sdl3", sdl3.module("sdl3"));
-}
+        self.modules.append(self.allocator, .{ .mod = mod, .name = name }) catch @panic("");
+
+        return mod;
+    }
+
+    pub fn addLibrary(self: *Library, name: []const u8, mod: *std.Build.Module) void {
+        self.modules.append(self.allocator, .{ .mod = mod, .name = name }) catch @panic("");
+    }
+
+    pub fn confirm(self: *Library) void {
+        for(self.modules.items) |mod| {
+            for (self.modules.items) |mod1| {
+                mod.mod.addImport(mod1.name, mod1.mod);
+            }
+        }
+    }
+};
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const syntetica_mod = b.addModule("syntetica", .{
-        .root_source_file = b.path("src/root.zig"),
+    var syntetica_core: Library = .{
+        .b = b,
         .optimize = optimize,
         .target = target,
-    });
+        .core = b.addModule("syntetica", .{
+            .root_source_file = b.path("src/back/root.zig"),
+            .optimize = optimize,
+            .target = target,
+        }),
+    };
+    syntetica_core.init(b.allocator);
+    _ = syntetica_core.addModule("default");
+    _ = syntetica_core.addModule("config");
+    _ = syntetica_core.addModule("ui");
+    _ = syntetica_core.addModule("ecs");
+    _ = syntetica_core.addModule("fs");
 
+
+    // RAYLIB /////////
     const raylib_dep = b.dependency("raylib_zig", .{
         .target = target,
         .optimize = optimize,
@@ -73,40 +74,71 @@ pub fn build(b: *std.Build) void {
     const raygui = raylib_dep.module("raygui"); // raygui module
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C addLibrary
 
-    syntetica_mod.linkLibrary(raylib_artifact);
-    syntetica_mod.addImport("raylib", raylib);
-    syntetica_mod.addImport("raygui", raygui);
+    syntetica_core.core.linkLibrary(raylib_artifact);
+    syntetica_core.addLibrary("raylib", raylib);
+    syntetica_core.addLibrary("raygui", raygui);
 
-    // EXAMPLES ///////////////////////////
-    const examples = [_][]const u8{
-        "full",
-        "actorstyle",
-    };
-    for (examples) |example_name| {
-        const example_path = b.fmt("examples/{s}", .{example_name}); 
-        const example = b.addExecutable(.{
-            .name = example_name,
-            .root_module = b.createModule(.{
-                .root_source_file = b.path(b.fmt("{s}/main.zig", .{example_path})),
-                .target = target,
-                .optimize = optimize,
-            }),
-        });
-        example.root_module.addImport("syntetica", syntetica_mod);
+    syntetica_core.confirm();
 
-        //b.installArtifact(example);
-        const inst_art = b.addInstallArtifact(example, .{.dest_dir = .{ .override = .bin}});
-//        const run_example = b.addRunArtifact(inst_art.artifact);
-        const inst_dir = b.addInstallDirectory(.{ .source_dir = b.path(b.fmt("{s}/res", .{example_path})), .install_dir = .bin, .install_subdir = "res" });
+    const syntetica_app = b.addExecutable(.{
+        .name = "syntetica",
+        .root_module = b.addModule("interface", .{
+            .root_source_file = b.path("src/app/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    syntetica_app.root_module.linkLibrary(raylib_artifact);
+    syntetica_app.root_module.addImport("syntetica", syntetica_core.core);
+    syntetica_app.root_module.addImport("raylib", raylib);
+    syntetica_app.root_module.addImport("raygui", raygui);
+    const run_app_step = b.addRunArtifact(syntetica_app);
 
-        const default_path = b.fmt("zig-out/bin/{s}", .{example_name});
+    const app_step = b.step("run", "Run the game engine application");
+    app_step.dependOn(&syntetica_app.step);
+    app_step.dependOn(&run_app_step.step);
 
-        const run_example = b.addSystemCommand(&.{b.fmt("{s}/../{s}", .{b.install_path ,example.installed_path orelse default_path})});
-        run_example.step.dependOn(&inst_art.step);
-        run_example.step.dependOn(&inst_dir.step);
-
-        const example_step = b.step(b.fmt("runeg_{s}", .{example_name}), b.fmt("Run the {s} example", .{example_name}));
-        example_step.dependOn(&example.step);
-        example_step.dependOn(&run_example.step);
-    }
+    // // EXAMPLES ///////////////////////////
+    // const examples = [_][]const u8{
+    //     "full",
+    //     "actorstyle",
+    //     "dev",
+    // };
+    // for (examples) |example_name| {
+    //     const example_path = b.fmt("examples/{s}", .{example_name}); 
+    //     const example = b.addExecutable(.{
+    //         .name = example_name,
+    //         .root_module = b.createModule(.{
+    //             .root_source_file = b.path(b.fmt("{s}/main.zig", .{example_path})),
+    //             .target = target,
+    //             .optimize = optimize,
+    //         }),
+    //     });
+    //     example.root_module.addImport("syntetica", syntetica_core.core);
+    //
+    //     const inst_art = b.addInstallArtifact(example, .{.dest_dir = .{ .override = .bin}});
+    //     const inst_dir = b.addInstallDirectory(.{ 
+    //         .source_dir = b.path(b.fmt("{s}/res", .{example_path})), 
+    //         .install_dir = .bin, 
+    //         .install_subdir = "res" 
+    //     });
+    //
+    //     const default_path = b.fmt("zig-out/bin/{s}", .{example_name});
+    //
+    //     const run_example = b.addSystemCommand(&.{
+    //         b.fmt("{s}/../{s}", .{
+    //             b.install_path, 
+    //             example.installed_path orelse default_path
+    //         })
+    //     });
+    //     run_example.step.dependOn(&inst_art.step);
+    //     run_example.step.dependOn(&inst_dir.step);
+    //
+    //     const example_step = b.step(
+    //         b.fmt("runeg_{s}", .{example_name}), 
+    //         b.fmt("Run the {s} example", .{example_name})
+    //     );
+    //     example_step.dependOn(&example.step);
+    //     example_step.dependOn(&run_example.step);
+    // }
 }
